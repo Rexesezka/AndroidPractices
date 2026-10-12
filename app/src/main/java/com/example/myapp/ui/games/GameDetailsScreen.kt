@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,11 +33,16 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.myapp.data.model.Game
-import com.example.myapp.data.model.MatchEvent
+import com.example.myapp.domain.model.Game
+import com.example.myapp.domain.model.GameDetails
+import com.example.myapp.domain.model.GlickoPrediction
+import com.example.myapp.domain.model.MatchEvent
+import com.example.myapp.domain.model.OddsMarket
+import com.example.myapp.domain.model.StatLine
 import com.example.myapp.ui.common.ErrorState
 import com.example.myapp.ui.common.StatusBadge
 import com.example.myapp.ui.common.asOdd
+import com.example.myapp.ui.common.asProbabilityPercent
 import com.example.myapp.ui.common.asXg
 import com.example.myapp.ui.common.scoreText
 
@@ -52,7 +58,7 @@ fun GameDetailsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.game?.league?.name ?: "Матч") },
+                title = { Text(uiState.details?.game?.leagueName ?: "Матч") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -69,22 +75,22 @@ fun GameDetailsScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            val game = uiState.game
+            val details = uiState.details
             when {
-                uiState.isLoading -> {
+                uiState.isLoading && details == null -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
-                game == null -> {
+                details == null -> {
                     ErrorState(
-                        message = uiState.errorMessage ?: "Матч не найден",
+                        message = uiState.errorMessage ?: "Не удалось загрузить матч",
                         onRetry = viewModel::load,
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
 
                 else -> {
-                    GameDetailsContent(game = game)
+                    GameDetailsContent(details = details)
                 }
             }
         }
@@ -92,7 +98,7 @@ fun GameDetailsScreen(
 }
 
 @Composable
-private fun GameDetailsContent(game: Game) {
+private fun GameDetailsContent(details: GameDetails) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -100,12 +106,18 @@ private fun GameDetailsContent(game: Game) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ScoreboardCard(game = game)
-        PredictionsCard(game = game)
-        OddsCard(game = game)
-        if (game.events.isNotEmpty()) {
-            EventsCard(events = game.events)
+        ScoreboardCard(game = details.game)
+        details.glicko?.let { PredictionsCard(game = details.game, glicko = it) }
+        if (details.statistics.isNotEmpty()) {
+            StatisticsCard(statistics = details.statistics)
         }
+        if (details.events.isNotEmpty()) {
+            EventsCard(game = details.game, events = details.events)
+        }
+        if (details.game.odds.isNotEmpty()) {
+            OddsCard(odds = details.game.odds)
+        }
+        VenueCard(details = details)
     }
 }
 
@@ -120,13 +132,19 @@ private fun ScoreboardCard(game: Game) {
             val (leagueRef, homeRef, scoreRef, awayRef, statusRef, dateRef) = createRefs()
 
             Text(
-                text = "${game.league.name} • ${game.league.season}",
+                text = buildString {
+                    append(game.leagueName ?: "Лига")
+                    game.seasonYear?.let { append(" • сезон $it") }
+                    game.roundName?.let { append(" • $it") }
+                },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.constrainAs(leagueRef) {
                     top.linkTo(parent.top)
                     start.linkTo(parent.start)
                     end.linkTo(parent.end)
+                    width = Dimension.fillToConstraints
                 },
             )
 
@@ -175,7 +193,7 @@ private fun ScoreboardCard(game: Game) {
             )
 
             Text(
-                text = game.date,
+                text = game.date.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.constrainAs(dateRef) {
@@ -189,17 +207,174 @@ private fun ScoreboardCard(game: Game) {
 }
 
 @Composable
-private fun PredictionsCard(game: Game) {
+private fun PredictionsCard(game: Game, glicko: GlickoPrediction) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(text = "Прогноз Glicko 2 (xG)", style = MaterialTheme.typography.titleMedium)
-            StatRow(label = game.homeTeam.name, value = game.homeXg.asXg())
-            StatRow(label = game.awayTeam.name, value = game.awayXg.asXg())
+            Text(text = "Прогноз Glicko 2 и xG", style = MaterialTheme.typography.titleMedium)
+
+            StatRow(label = game.homeTeam.name, value = glicko.homeRating?.let { "%.0f".format(it) } ?: "—")
+            StatRow(label = game.awayTeam.name, value = glicko.awayRating?.let { "%.0f".format(it) } ?: "—")
+
+            HorizontalDivider()
+
+            StatRow(label = "xG ${game.homeTeam.name}", value = glicko.homeXg?.asXg() ?: "—")
+            StatRow(label = "xG ${game.awayTeam.name}", value = glicko.awayXg?.asXg() ?: "—")
+
+            glicko.homeWinProbability?.let { home ->
+                HorizontalDivider()
+                StatRow(label = "Вероятность победы хозяев", value = home.asProbabilityPercent())
+                glicko.awayWinProbability?.let { away ->
+                    StatRow(label = "Вероятность победы гостей", value = away.asProbabilityPercent())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatisticsCard(statistics: List<StatLine>) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(text = "Статистика матча", style = MaterialTheme.typography.titleMedium)
+            statistics.forEach { line ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = line.home,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.width(56.dp),
+                    )
+                    Text(
+                        text = line.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = line.away,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.width(56.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventsCard(game: Game, events: List<MatchEvent>) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(text = "События матча", style = MaterialTheme.typography.titleMedium)
+            events.forEach { event ->
+                val teamName = when (event.teamId) {
+                    game.homeTeam.id -> game.homeTeam.name
+                    game.awayTeam.id -> game.awayTeam.name
+                    else -> null
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = event.minuteLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.width(48.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = event.type.title, style = MaterialTheme.typography.bodyMedium)
+                        val subtitle = listOfNotNull(event.playerName, event.assistName?.let { "ассист: $it" })
+                        if (subtitle.isNotEmpty()) {
+                            Text(
+                                text = subtitle.joinToString(" • "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    teamName?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.End,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OddsCard(odds: List<OddsMarket>) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(text = "Коэффициенты", style = MaterialTheme.typography.titleMedium)
+            odds.forEach { market ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = market.marketName ?: "Рынок ${market.marketId}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = market.odds.joinToString("  ") { "${it.name} ${it.value.asOdd()}" },
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VenueCard(details: GameDetails) {
+    val venue = details.venue
+    if (venue?.name == null && details.refereeName == null) return
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(text = "Матч-центр", style = MaterialTheme.typography.titleMedium)
+            venue?.name?.let { StatRow(label = "Стадион", value = it) }
+            venue?.city?.let { StatRow(label = "Город", value = it) }
+            venue?.capacity?.let { StatRow(label = "Вместимость", value = it.toString()) }
+            details.refereeName?.let { StatRow(label = "Судья", value = it) }
         }
     }
 }
@@ -216,82 +391,5 @@ private fun StatRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
         )
-    }
-}
-
-@Composable
-private fun OddsCard(game: Game) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(text = "Коэффициенты", style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                OddItem(label = "П1", value = game.oddsHome.asOdd())
-                OddItem(label = "X", value = game.oddsDraw.asOdd())
-                OddItem(label = "П2", value = game.oddsAway.asOdd())
-            }
-        }
-    }
-}
-
-@Composable
-private fun OddItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-    }
-}
-
-@Composable
-private fun EventsCard(events: List<MatchEvent>) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(text = "События матча", style = MaterialTheme.typography.titleMedium)
-            events.forEach { event ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "${event.minute}'",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.width(44.dp),
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = event.type.label, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = event.playerName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        text = event.teamName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
     }
 }
