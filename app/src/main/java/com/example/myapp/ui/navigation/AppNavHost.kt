@@ -2,9 +2,10 @@ package com.example.myapp.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -23,6 +24,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.myapp.ui.common.PlaceholderScreen
+import com.example.myapp.ui.favorites.FavoritesScreen
+import com.example.myapp.ui.filters.GamesFilterScreen
 import com.example.myapp.ui.games.GameDetailsScreen
 import com.example.myapp.ui.games.GameListScreen
 import com.example.myapp.ui.leagues.LeaguesScreen
@@ -35,6 +38,7 @@ private data class BottomNavItem(
 
 private val bottomNavItems = listOf(
     BottomNavItem(Destinations.GAMES, "Матчи", Icons.Filled.Home),
+    BottomNavItem(Destinations.FAVORITES, "Избранное", Icons.Filled.Favorite),
     BottomNavItem(Destinations.TEAMS, "Команды", Icons.Filled.AccountCircle),
     BottomNavItem(Destinations.PLAYERS, "Игроки", Icons.Filled.Person),
     BottomNavItem(Destinations.LEAGUES, "Лиги", Icons.AutoMirrored.Filled.List),
@@ -78,6 +82,20 @@ fun AppNavHost() {
         ) {
             composable(Destinations.GAMES) {
                 GameListScreen(
+                    onGameClick = { gameId ->
+                        navController.navigate(Destinations.gameDetails(gameId))
+                    },
+                    onFiltersClick = { navController.navigate(Destinations.FILTERS) },
+                )
+            }
+            composable(Destinations.FILTERS) {
+                GamesFilterScreen(
+                    onBack = { navController.popBackStack() },
+                    onDone = { navController.popBackStack() },
+                )
+            }
+            composable(Destinations.FAVORITES) {
+                FavoritesScreen(
                     onGameClick = { gameId ->
                         navController.navigate(Destinations.gameDetails(gameId))
                     },

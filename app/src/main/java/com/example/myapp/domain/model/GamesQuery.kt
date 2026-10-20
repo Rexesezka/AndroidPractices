@@ -55,6 +55,10 @@ data class GamesQuery(
 
     fun cacheKey(): String = "${filter.name}:${leagueId ?: "-"}:${year ?: "-"}"
 
+    /** Настройки не отличаются от значений по умолчанию (страница в дефолтном состоянии). */
+    val isDefault: Boolean
+        get() = filter == GamesFilter.ALL && leagueId == null && year == null
+
     private fun dateOffsetDays(days: Int): String {
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_YEAR, days)
