@@ -10,6 +10,8 @@ import com.example.myapp.core.NetworkResult
 import com.example.myapp.di.ServiceLocator
 import com.example.myapp.domain.model.GameDetails
 import com.example.myapp.domain.usecase.GetGameDetailsUseCase
+import com.example.myapp.domain.usecase.ObserveIsFavoriteUseCase
+import com.example.myapp.domain.usecase.ToggleFavoriteUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,18 +26,31 @@ data class GameDetailsUiState(
 
 /**
  * ViewModel экрана деталей матча. Id матча приходит из аргументов навигации
- * (path-параметр /games/{id}).
+ * (path-параметр /games/{id}). Здесь же — добавление в избранное (Room).
  */
 class GameDetailsViewModel(
     private val gameId: Int,
     private val getGameDetails: GetGameDetailsUseCase,
+    observeIsFavorite: ObserveIsFavoriteUseCase,
+    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GameDetailsUiState())
     val uiState: StateFlow<GameDetailsUiState> = _uiState.asStateFlow()
 
+    private val _isFavorite = MutableStateFlow(false)
+    val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
+
     init {
         load()
+        viewModelScope.launch {
+            observeIsFavorite(gameId).collect { _isFavorite.value = it }
+        }
+    }
+
+    fun toggleFavorite() {
+        val game = _uiState.value.details?.game ?: return
+        viewModelScope.launch { toggleFavoriteUseCase(game) }
     }
 
     fun load() {
@@ -62,7 +77,14 @@ class GameDetailsViewModel(
 
     companion object {
         fun factory(gameId: Int): ViewModelProvider.Factory = viewModelFactory {
-            initializer { GameDetailsViewModel(gameId, ServiceLocator.getGameDetailsUseCase) }
+            initializer {
+                GameDetailsViewModel(
+                    gameId = gameId,
+                    getGameDetails = ServiceLocator.getGameDetailsUseCase,
+                    observeIsFavorite = ServiceLocator.observeIsFavoriteUseCase,
+                    toggleFavoriteUseCase = ServiceLocator.toggleFavoriteUseCase,
+                )
+            }
         }
     }
 }

@@ -16,11 +16,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,22 +30,17 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,11 +58,12 @@ import com.example.myapp.ui.common.scoreText
 @Composable
 fun GameListScreen(
     onGameClick: (Int) -> Unit,
+    onFiltersClick: () -> Unit,
     viewModel: GameListViewModel = viewModel(factory = GameListViewModel.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val hasActiveFilters by viewModel.hasActiveFilters.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    var showFilterDialog by remember { mutableStateOf(false) }
 
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -84,8 +82,19 @@ fun GameListScreen(
             TopAppBar(
                 title = { Text("Матчи") },
                 actions = {
-                    IconButton(onClick = { showFilterDialog = true }) {
-                        Icon(Icons.Filled.Search, contentDescription = "Фильтры по лиге и году")
+                    IconButton(onClick = onFiltersClick) {
+                        BadgedBox(
+                            badge = {
+                                if (hasActiveFilters) {
+                                    Badge()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Настройки фильтра",
+                            )
+                        }
                     }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Обновить")
@@ -138,7 +147,12 @@ fun GameListScreen(
                             contentPadding = PaddingValues(vertical = 8.dp),
                         ) {
                             items(uiState.games, key = { it.id }) { game ->
-                                GameCard(game = game, onClick = { onGameClick(game.id) })
+                                GameCard(
+                                    game = game,
+                                    isFavorite = game.id in uiState.favoriteIds,
+                                    onClick = { onGameClick(game.id) },
+                                    onToggleFavorite = { viewModel.toggleFavorite(game) },
+                                )
                             }
 
                             if (uiState.isLoadingMore) {
@@ -183,18 +197,6 @@ fun GameListScreen(
             }
         }
     }
-
-    if (showFilterDialog) {
-        FilterDialog(
-            initialLeagueId = uiState.query.leagueId,
-            initialYear = uiState.query.year,
-            onDismiss = { showFilterDialog = false },
-            onApply = { leagueId, year ->
-                viewModel.applyAdvancedFilter(leagueId, year)
-                showFilterDialog = false
-            },
-        )
-    }
 }
 
 @Composable
@@ -220,7 +222,12 @@ private fun FiltersRow(
 }
 
 @Composable
-private fun GameCard(game: Game, onClick: () -> Unit) {
+private fun GameCard(
+    game: Game,
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -239,6 +246,21 @@ private fun GameCard(game: Game, onClick: () -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
                 StatusBadge(status = game.status)
+                IconButton(onClick = onToggleFavorite) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = if (isFavorite) {
+                            "Убрать из избранного"
+                        } else {
+                            "Добавить в избранное"
+                        },
+                        tint = if (isFavorite) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -284,55 +306,4 @@ private fun GameCard(game: Game, onClick: () -> Unit) {
             }
         }
     }
-}
-
-@Composable
-private fun FilterDialog(
-    initialLeagueId: Int?,
-    initialYear: Int?,
-    onDismiss: () -> Unit,
-    onApply: (Int?, Int?) -> Unit,
-) {
-    var leagueId by remember { mutableStateOf(initialLeagueId?.toString().orEmpty()) }
-    var year by remember { mutableStateOf(initialYear?.toString().orEmpty()) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Фильтр запроса") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Дополнительные query-параметры запроса /games/list",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = leagueId,
-                    onValueChange = { leagueId = it.filter(Char::isDigit) },
-                    label = { Text("LeagueId (например, 39)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-                OutlinedTextField(
-                    value = year,
-                    onValueChange = { year = it.filter(Char::isDigit).take(4) },
-                    label = { Text("Year (например, 2024)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onApply(leagueId.toIntOrNull(), year.toIntOrNull())
-            }) {
-                Text("Применить")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = { onApply(null, null) }) {
-                Text("Сбросить")
-            }
-        },
-    )
 }

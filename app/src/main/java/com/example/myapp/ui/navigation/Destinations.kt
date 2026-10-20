@@ -7,6 +7,9 @@ object Destinations {
 
     const val GAMES = "games"
     const val GAME_DETAILS = "games/{gameId}"
+    const val FILTERS = "filters"
+
+    const val FAVORITES = "favorites"
 
     const val TEAMS = "teams"
     const val PLAYERS = "players"
