@@ -25,6 +25,7 @@ import androidx.navigation.navArgument
 import com.example.myapp.ui.common.PlaceholderScreen
 import com.example.myapp.ui.games.GameDetailsScreen
 import com.example.myapp.ui.games.GameListScreen
+import com.example.myapp.ui.leagues.LeaguesScreen
 
 private data class BottomNavItem(
     val route: String,
@@ -101,7 +102,7 @@ fun AppNavHost() {
                 PlaceholderScreen("Игроки", "Список игроков появится в следующих практиках")
             }
             composable(Destinations.LEAGUES) {
-                PlaceholderScreen("Лиги", "Список лиг появится в следующих практиках")
+                LeaguesScreen()
             }
         }
     }

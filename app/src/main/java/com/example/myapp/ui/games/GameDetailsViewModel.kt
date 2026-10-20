@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.myapp.data.FootballRepository
-import com.example.myapp.data.MockFootballRepository
-import com.example.myapp.data.model.Game
+import com.example.myapp.core.ErrorMapper
+import com.example.myapp.core.NetworkResult
+import com.example.myapp.di.ServiceLocator
+import com.example.myapp.domain.model.GameDetails
+import com.example.myapp.domain.usecase.GetGameDetailsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,17 +17,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class GameDetailsUiState(
-    val game: Game? = null,
+    val details: GameDetails? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
 )
 
 /**
- * ViewModel экрана деталей матча. Получает id матча из аргументов навигации.
+ * ViewModel экрана деталей матча. Id матча приходит из аргументов навигации
+ * (path-параметр /games/{id}).
  */
 class GameDetailsViewModel(
     private val gameId: Int,
-    private val repository: FootballRepository = MockFootballRepository,
+    private val getGameDetails: GetGameDetailsUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GameDetailsUiState())
@@ -38,30 +41,28 @@ class GameDetailsViewModel(
     fun load() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            runCatching { repository.getGameById(gameId) }
-                .onSuccess { game ->
-                    _uiState.update {
+            getGameDetails(gameId).collect { result ->
+                when (result) {
+                    is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
+
+                    is NetworkResult.Success -> _uiState.update {
+                        it.copy(details = result.data, isLoading = false, errorMessage = null)
+                    }
+
+                    is NetworkResult.Error -> _uiState.update {
                         it.copy(
-                            game = game,
                             isLoading = false,
-                            errorMessage = if (game == null) "Матч не найден" else null,
+                            errorMessage = ErrorMapper.toUserMessage(result.throwable),
                         )
                     }
                 }
-                .onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Не удалось загрузить матч",
-                        )
-                    }
-                }
+            }
         }
     }
 
     companion object {
         fun factory(gameId: Int): ViewModelProvider.Factory = viewModelFactory {
-            initializer { GameDetailsViewModel(gameId) }
+            initializer { GameDetailsViewModel(gameId, ServiceLocator.getGameDetailsUseCase) }
         }
     }
 }
