@@ -6,12 +6,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.myapp.core.ErrorMapper
+import com.example.myapp.core.FilterBadgeCache
 import com.example.myapp.core.NetworkResult
 import com.example.myapp.di.ServiceLocator
 import com.example.myapp.domain.model.Game
 import com.example.myapp.domain.model.GamesFilter
 import com.example.myapp.domain.model.GamesQuery
 import com.example.myapp.domain.usecase.GetGamesPageUseCase
+import com.example.myapp.domain.usecase.ObserveFavoriteIdsUseCase
+import com.example.myapp.domain.usecase.ObserveGamesSettingsUseCase
+import com.example.myapp.domain.usecase.SaveGamesSettingsUseCase
+import com.example.myapp.domain.usecase.ToggleFavoriteUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +27,7 @@ import kotlinx.coroutines.launch
 data class GameListUiState(
     val query: GamesQuery = GamesQuery(),
     val games: List<Game> = emptyList(),
+    val favoriteIds: Set<Int> = emptySet(),
     val isInitialLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -33,34 +39,77 @@ data class GameListUiState(
 /**
  * ViewModel списка матчей. Управляет сетевыми запросами: фильтры (query-параметры),
  * постраничная загрузка (offset/limit), состояния загрузки и ошибок.
+ *
+ * Настройки фильтра читаются из DataStore и сохраняются туда же, поэтому
+ * переживают перезапуск приложения. Признак активных настроек кладётся
+ * в общий [FilterBadgeCache] для бейджа на иконке фильтров.
  */
 class GameListViewModel(
     private val getGamesPage: GetGamesPageUseCase,
+    private val observeGamesSettings: ObserveGamesSettingsUseCase,
+    private val saveGamesSettings: SaveGamesSettingsUseCase,
+    private val observeFavoriteIds: ObserveFavoriteIdsUseCase,
+    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
+    private val filterBadgeCache: FilterBadgeCache,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GameListUiState())
     val uiState: StateFlow<GameListUiState> = _uiState.asStateFlow()
 
+    /** Состояние бейджа «есть активные настройки» (общий кэш). */
+    val hasActiveFilters: StateFlow<Boolean> = filterBadgeCache.hasActiveFilters
+
     private var nextOffset = 0
     private var loadJob: Job? = null
+    private var isFirstSettingsEmission = true
 
     init {
-        loadPage(reset = true)
+        observeSettings()
+        observeFavorites()
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            observeGamesSettings().collect { query ->
+                filterBadgeCache.update(!query.isDefault)
+
+                val changed = isFirstSettingsEmission || query != _uiState.value.query
+                isFirstSettingsEmission = false
+                if (!changed) return@collect
+
+                _uiState.update {
+                    it.copy(query = query, games = emptyList(), isEndReached = false)
+                }
+                loadPage(reset = true)
+            }
+        }
+    }
+
+    private fun observeFavorites() {
+        viewModelScope.launch {
+            observeFavoriteIds().collect { ids ->
+                _uiState.update { it.copy(favoriteIds = ids) }
+            }
+        }
     }
 
     fun selectFilter(filter: GamesFilter) {
-        if (filter == _uiState.value.query.filter) return
-        _uiState.update {
-            it.copy(query = it.query.copy(filter = filter), games = emptyList(), isEndReached = false)
-        }
-        loadPage(reset = true)
+        val current = _uiState.value.query
+        if (filter == current.filter) return
+        applySettings(current.copy(filter = filter))
     }
 
-    fun applyAdvancedFilter(leagueId: Int?, year: Int?) {
-        _uiState.update {
-            it.copy(query = it.query.copy(leagueId = leagueId, year = year), games = emptyList(), isEndReached = false)
-        }
+    /** Применить настройки и сохранить их (DataStore). */
+    fun applySettings(query: GamesQuery) {
+        if (query == _uiState.value.query) return
+        filterBadgeCache.update(!query.isDefault)
+        _uiState.update { it.copy(query = query, games = emptyList(), isEndReached = false) }
         loadPage(reset = true)
+        viewModelScope.launch { saveGamesSettings(query) }
+    }
+
+    fun toggleFavorite(game: Game) {
+        viewModelScope.launch { toggleFavoriteUseCase(game) }
     }
 
     fun refresh() {
@@ -136,7 +185,16 @@ class GameListViewModel(
         const val PAGE_SIZE = 20
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer { GameListViewModel(ServiceLocator.getGamesPageUseCase) }
+            initializer {
+                GameListViewModel(
+                    getGamesPage = ServiceLocator.getGamesPageUseCase,
+                    observeGamesSettings = ServiceLocator.observeGamesSettingsUseCase,
+                    saveGamesSettings = ServiceLocator.saveGamesSettingsUseCase,
+                    observeFavoriteIds = ServiceLocator.observeFavoriteIdsUseCase,
+                    toggleFavoriteUseCase = ServiceLocator.toggleFavoriteUseCase,
+                    filterBadgeCache = ServiceLocator.filterBadgeCache,
+                )
+            }
         }
     }
 }
