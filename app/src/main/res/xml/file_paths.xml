@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Аватарки пользователя. -->
+    <files-path
+        name="avatars"
+        path="avatars/" />
+    <!-- Скачанные документы (резюме). -->
+    <files-path
+        name="documents"
+        path="documents/" />
+</paths>
