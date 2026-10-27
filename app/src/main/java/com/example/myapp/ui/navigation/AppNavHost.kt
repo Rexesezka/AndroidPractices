@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -29,6 +30,8 @@ import com.example.myapp.ui.filters.GamesFilterScreen
 import com.example.myapp.ui.games.GameDetailsScreen
 import com.example.myapp.ui.games.GameListScreen
 import com.example.myapp.ui.leagues.LeaguesScreen
+import com.example.myapp.ui.profile.ProfileEditScreen
+import com.example.myapp.ui.profile.ProfileScreen
 
 private data class BottomNavItem(
     val route: String,
@@ -40,8 +43,9 @@ private val bottomNavItems = listOf(
     BottomNavItem(Destinations.GAMES, "Матчи", Icons.Filled.Home),
     BottomNavItem(Destinations.FAVORITES, "Избранное", Icons.Filled.Favorite),
     BottomNavItem(Destinations.TEAMS, "Команды", Icons.Filled.AccountCircle),
-    BottomNavItem(Destinations.PLAYERS, "Игроки", Icons.Filled.Person),
+    BottomNavItem(Destinations.PLAYERS, "Игроки", Icons.Filled.Face),
     BottomNavItem(Destinations.LEAGUES, "Лиги", Icons.AutoMirrored.Filled.List),
+    BottomNavItem(Destinations.PROFILE, "Профиль", Icons.Filled.Person),
 )
 
 @Composable
@@ -121,6 +125,17 @@ fun AppNavHost() {
             }
             composable(Destinations.LEAGUES) {
                 LeaguesScreen()
+            }
+            composable(Destinations.PROFILE) {
+                ProfileScreen(
+                    onEditClick = { navController.navigate(Destinations.PROFILE_EDIT) },
+                )
+            }
+            composable(Destinations.PROFILE_EDIT) {
+                ProfileEditScreen(
+                    onBack = { navController.popBackStack() },
+                    onDone = { navController.popBackStack() },
+                )
             }
         }
     }
