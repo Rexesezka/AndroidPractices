@@ -6,15 +6,22 @@ import com.example.myapp.core.FilterBadgeCache
 import com.example.myapp.core.InMemoryCache
 import com.example.myapp.data.local.db.AppDatabase
 import com.example.myapp.data.local.preferences.GamesSettingsDataStore
+import com.example.myapp.data.local.profile.AvatarStorage
+import com.example.myapp.data.local.profile.ProfileFileDataSource
 import com.example.myapp.data.remote.SstatsApi
 import com.example.myapp.data.repository.FavoritesRepositoryImpl
 import com.example.myapp.data.repository.FootballRepositoryImpl
 import com.example.myapp.data.repository.GamesSettingsRepositoryImpl
+import com.example.myapp.data.repository.ProfileRepositoryImpl
+import com.example.myapp.data.repository.ResumeRepositoryImpl
 import com.example.myapp.domain.model.Game
 import com.example.myapp.domain.model.League
 import com.example.myapp.domain.repository.FavoritesRepository
 import com.example.myapp.domain.repository.FootballRepository
 import com.example.myapp.domain.repository.GamesSettingsRepository
+import com.example.myapp.domain.repository.ProfileRepository
+import com.example.myapp.domain.repository.ResumeRepository
+import com.example.myapp.domain.usecase.DownloadResumeUseCase
 import com.example.myapp.domain.usecase.GetGameDetailsUseCase
 import com.example.myapp.domain.usecase.GetGamesPageUseCase
 import com.example.myapp.domain.usecase.GetLeaguesUseCase
@@ -22,8 +29,11 @@ import com.example.myapp.domain.usecase.ObserveFavoriteIdsUseCase
 import com.example.myapp.domain.usecase.ObserveFavoritesUseCase
 import com.example.myapp.domain.usecase.ObserveGamesSettingsUseCase
 import com.example.myapp.domain.usecase.ObserveIsFavoriteUseCase
+import com.example.myapp.domain.usecase.ObserveProfileUseCase
 import com.example.myapp.domain.usecase.RemoveFavoriteUseCase
+import com.example.myapp.domain.usecase.SaveAvatarUseCase
 import com.example.myapp.domain.usecase.SaveGamesSettingsUseCase
+import com.example.myapp.domain.usecase.SaveProfileUseCase
 import com.example.myapp.domain.usecase.ToggleFavoriteUseCase
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -144,4 +154,36 @@ object ServiceLocator {
     // --- Общий кэш бейджа (создаётся один раз через DI) ---
 
     val filterBadgeCache: FilterBadgeCache by lazy { FilterBadgeCache() }
+
+    // --- Профиль пользователя (файловое хранение) ---
+
+    private val profileFileDataSource: ProfileFileDataSource by lazy {
+        ProfileFileDataSource(appContext, json)
+    }
+
+    private val avatarStorage: AvatarStorage by lazy { AvatarStorage(appContext) }
+
+    private val profileRepository: ProfileRepository by lazy {
+        ProfileRepositoryImpl(profileFileDataSource, avatarStorage)
+    }
+
+    private val resumeRepository: ResumeRepository by lazy {
+        ResumeRepositoryImpl(appContext, okHttpClient)
+    }
+
+    val observeProfileUseCase: ObserveProfileUseCase by lazy {
+        ObserveProfileUseCase(profileRepository)
+    }
+
+    val saveProfileUseCase: SaveProfileUseCase by lazy {
+        SaveProfileUseCase(profileRepository)
+    }
+
+    val saveAvatarUseCase: SaveAvatarUseCase by lazy {
+        SaveAvatarUseCase(profileRepository)
+    }
+
+    val downloadResumeUseCase: DownloadResumeUseCase by lazy {
+        DownloadResumeUseCase(resumeRepository)
+    }
 }

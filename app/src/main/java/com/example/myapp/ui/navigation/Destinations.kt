@@ -11,6 +11,9 @@ object Destinations {
 
     const val FAVORITES = "favorites"
 
+    const val PROFILE = "profile"
+    const val PROFILE_EDIT = "profile/edit"
+
     const val TEAMS = "teams"
     const val PLAYERS = "players"
     const val LEAGUES = "leagues"
