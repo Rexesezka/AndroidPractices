@@ -33,7 +33,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.myapp.R
 import com.example.myapp.ui.common.AvatarImage
 import java.io.File
 
@@ -73,7 +77,13 @@ fun ProfileEditScreen(
     val requiredPermissions = remember { requiredPermissions() }
     var permissionDenied by remember { mutableStateOf(false) }
     var showSourceDialog by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Разрешение на уведомления (Android 13+). Отказ не мешает работе приложения.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { /* результат не блокирует экран: уведомление просто не покажется */ }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -83,7 +93,20 @@ fun ProfileEditScreen(
 
         val cameraGranted = isGranted(Manifest.permission.CAMERA)
         val mediaGranted = hasMediaAccess(::isGranted)
-        if (!cameraGranted || !mediaGranted) permissionDenied = true
+        if (!cameraGranted || !mediaGranted) {
+            permissionDenied = true
+            return@rememberLauncherForActivityResult
+        }
+
+        // После доступа к фото просим разрешение на пуш-уведомления.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -125,7 +148,12 @@ fun ProfileEditScreen(
     }
 
     LaunchedEffect(uiState.isSaved) {
-        if (uiState.isSaved) onDone()
+        if (uiState.isSaved) {
+            uiState.scheduledMessage?.let { message ->
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
+            onDone()
+        }
     }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -211,9 +239,36 @@ fun ProfileEditScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
 
+                    OutlinedTextField(
+                        value = uiState.lessonTime,
+                        onValueChange = viewModel::updateLessonTime,
+                        label = { Text("Время любимой пары") },
+                        placeholder = { Text("HH:mm") },
+                        isError = uiState.lessonTimeError != null,
+                        supportingText = {
+                            val error = uiState.lessonTimeError
+                            if (error != null) {
+                                Text(error)
+                            } else {
+                                Text("Напомним о начале пары в это время")
+                            }
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { showTimePicker = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_schedule),
+                                    contentDescription = "Выбрать время на часах",
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
                     Button(
                         onClick = viewModel::save,
-                        enabled = !uiState.isSaving,
+                        enabled = uiState.canSave,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (uiState.isSaving) {
@@ -229,6 +284,18 @@ fun ProfileEditScreen(
                 }
             }
         }
+    }
+
+    if (showTimePicker) {
+        TimePickerDialog(
+            initialHour = uiState.lessonTime.substringBefore(':').toIntOrNull() ?: 9,
+            initialMinute = uiState.lessonTime.substringAfter(':', "").toIntOrNull() ?: 0,
+            onDismiss = { showTimePicker = false },
+            onConfirm = { hour, minute ->
+                viewModel.onTimePicked(hour, minute)
+                showTimePicker = false
+            },
+        )
     }
 
     if (showSourceDialog) {
@@ -265,6 +332,38 @@ fun ProfileEditScreen(
             },
         )
     }
+}
+
+/** Диалог с виджетом часов (Material3 TimePicker). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (hour: Int, minute: Int) -> Unit,
+) {
+    val state = rememberTimePickerState(
+        initialHour = initialHour.coerceIn(0, 23),
+        initialMinute = initialMinute.coerceIn(0, 59),
+        is24Hour = true,
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Время любимой пары") },
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour, state.minute) }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
 }
 
 /** Разрешения, которые запрашиваем при входе на экран редактирования. */
