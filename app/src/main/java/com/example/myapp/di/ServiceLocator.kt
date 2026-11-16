@@ -8,6 +8,7 @@ import com.example.myapp.data.local.db.AppDatabase
 import com.example.myapp.data.local.preferences.GamesSettingsDataStore
 import com.example.myapp.data.local.profile.AvatarStorage
 import com.example.myapp.data.local.profile.ProfileFileDataSource
+import com.example.myapp.data.notification.AlarmLessonReminderScheduler
 import com.example.myapp.data.remote.SstatsApi
 import com.example.myapp.data.repository.FavoritesRepositoryImpl
 import com.example.myapp.data.repository.FootballRepositoryImpl
@@ -21,6 +22,8 @@ import com.example.myapp.domain.repository.FootballRepository
 import com.example.myapp.domain.repository.GamesSettingsRepository
 import com.example.myapp.domain.repository.ProfileRepository
 import com.example.myapp.domain.repository.ResumeRepository
+import com.example.myapp.domain.reminder.LessonReminderScheduler
+import com.example.myapp.domain.usecase.CancelLessonReminderUseCase
 import com.example.myapp.domain.usecase.DownloadResumeUseCase
 import com.example.myapp.domain.usecase.GetGameDetailsUseCase
 import com.example.myapp.domain.usecase.GetGamesPageUseCase
@@ -34,6 +37,7 @@ import com.example.myapp.domain.usecase.RemoveFavoriteUseCase
 import com.example.myapp.domain.usecase.SaveAvatarUseCase
 import com.example.myapp.domain.usecase.SaveGamesSettingsUseCase
 import com.example.myapp.domain.usecase.SaveProfileUseCase
+import com.example.myapp.domain.usecase.ScheduleLessonReminderUseCase
 import com.example.myapp.domain.usecase.ToggleFavoriteUseCase
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -185,5 +189,19 @@ object ServiceLocator {
 
     val downloadResumeUseCase: DownloadResumeUseCase by lazy {
         DownloadResumeUseCase(resumeRepository)
+    }
+
+    // --- Напоминание о любимой паре (AlarmManager + BroadcastReceiver) ---
+
+    private val lessonReminderScheduler: LessonReminderScheduler by lazy {
+        AlarmLessonReminderScheduler(appContext)
+    }
+
+    val scheduleLessonReminderUseCase: ScheduleLessonReminderUseCase by lazy {
+        ScheduleLessonReminderUseCase(lessonReminderScheduler)
+    }
+
+    val cancelLessonReminderUseCase: CancelLessonReminderUseCase by lazy {
+        CancelLessonReminderUseCase(lessonReminderScheduler)
     }
 }

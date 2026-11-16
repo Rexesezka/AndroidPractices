@@ -11,6 +11,7 @@ import com.example.myapp.domain.model.DownloadedDocument
 import com.example.myapp.domain.model.Profile
 import com.example.myapp.domain.usecase.DownloadResumeUseCase
 import com.example.myapp.domain.usecase.ObserveProfileUseCase
+import com.example.myapp.domain.usecase.ScheduleLessonReminderUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,15 +34,31 @@ data class ProfileUiState(
 class ProfileViewModel(
     observeProfile: ObserveProfileUseCase,
     private val downloadResume: DownloadResumeUseCase,
+    private val scheduleLessonReminder: ScheduleLessonReminderUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    /** Напоминание переустанавливается один раз за жизнь ViewModel. */
+    private var reminderRestored = false
+
     init {
         viewModelScope.launch {
             observeProfile().collect { profile ->
                 _uiState.update { it.copy(profile = profile, isLoading = false) }
+
+                // Будильник мог быть потерян (перезагрузка, обновление приложения) —
+                // при открытии профиля ставим его заново на то же время.
+                if (!reminderRestored && Profile.isValidTime(profile.lessonTime)) {
+                    reminderRestored = true
+                    runCatching {
+                        scheduleLessonReminder(
+                            name = profile.fullName.ifBlank { "Студент" },
+                            time = profile.lessonTime,
+                        )
+                    }
+                }
             }
         }
     }
@@ -82,6 +99,7 @@ class ProfileViewModel(
                 ProfileViewModel(
                     observeProfile = ServiceLocator.observeProfileUseCase,
                     downloadResume = ServiceLocator.downloadResumeUseCase,
+                    scheduleLessonReminder = ServiceLocator.scheduleLessonReminderUseCase,
                 )
             }
         }

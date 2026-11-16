@@ -11,6 +11,12 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- Пуш-уведомление о начале любимой пары (Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Точное срабатывание будильника (Android 12+). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Автоматическое разрешение на точные будильники (Android 13+, учебное приложение). -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <uses-feature
         android:name="android.hardware.camera"
@@ -30,6 +36,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.MyApp"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -38,6 +45,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Принимает срабатывание будильника и показывает уведомление. -->
+        <receiver
+            android:name=".data.notification.LessonReminderReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.myapp.action.LESSON_REMINDER" />
+            </intent-filter>
+        </receiver>
 
         <!-- Отдаёт файлы (аватарки и скачанное резюме) другим приложениям. -->
         <provider
