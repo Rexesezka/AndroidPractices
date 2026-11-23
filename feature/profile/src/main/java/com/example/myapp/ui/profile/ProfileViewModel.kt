@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.myapp.core.ErrorMapper
-import com.example.myapp.di.ServiceLocator
 import com.example.myapp.domain.model.DownloadedDocument
 import com.example.myapp.domain.model.Profile
 import com.example.myapp.domain.usecase.DownloadResumeUseCase
@@ -94,12 +93,12 @@ class ProfileViewModel(
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
+        fun factory(dependencies: ProfileDependencies): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ProfileViewModel(
-                    observeProfile = ServiceLocator.observeProfileUseCase,
-                    downloadResume = ServiceLocator.downloadResumeUseCase,
-                    scheduleLessonReminder = ServiceLocator.scheduleLessonReminderUseCase,
+                    observeProfile = dependencies.observeProfile,
+                    downloadResume = dependencies.downloadResume,
+                    scheduleLessonReminder = dependencies.scheduleLessonReminder,
                 )
             }
         }

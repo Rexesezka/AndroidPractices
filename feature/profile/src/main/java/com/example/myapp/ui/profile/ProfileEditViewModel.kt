@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.myapp.di.ServiceLocator
 import com.example.myapp.domain.model.Profile
 import com.example.myapp.domain.usecase.ObserveProfileUseCase
 import com.example.myapp.domain.usecase.SaveAvatarUseCase
@@ -195,13 +194,13 @@ class ProfileEditViewModel(
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
+        fun factory(dependencies: ProfileDependencies): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ProfileEditViewModel(
-                    observeProfile = ServiceLocator.observeProfileUseCase,
-                    saveProfile = ServiceLocator.saveProfileUseCase,
-                    saveAvatar = ServiceLocator.saveAvatarUseCase,
-                    scheduleLessonReminder = ServiceLocator.scheduleLessonReminderUseCase,
+                    observeProfile = dependencies.observeProfile,
+                    saveProfile = dependencies.saveProfile,
+                    saveAvatar = dependencies.saveAvatar,
+                    scheduleLessonReminder = dependencies.scheduleLessonReminder,
                 )
             }
         }

@@ -39,6 +39,7 @@ import com.example.myapp.domain.usecase.SaveGamesSettingsUseCase
 import com.example.myapp.domain.usecase.SaveProfileUseCase
 import com.example.myapp.domain.usecase.ScheduleLessonReminderUseCase
 import com.example.myapp.domain.usecase.ToggleFavoriteUseCase
+import com.example.myapp.ui.profile.ProfileDependencies
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -203,5 +204,17 @@ object ServiceLocator {
 
     val cancelLessonReminderUseCase: CancelLessonReminderUseCase by lazy {
         CancelLessonReminderUseCase(lessonReminderScheduler)
+    }
+
+    // --- Зависимости фичи «Профиль» (передаются в :feature:profile) ---
+
+    val profileDependencies: ProfileDependencies by lazy {
+        ProfileDependencies(
+            observeProfile = observeProfileUseCase,
+            saveProfile = saveProfileUseCase,
+            saveAvatar = saveAvatarUseCase,
+            downloadResume = downloadResumeUseCase,
+            scheduleLessonReminder = scheduleLessonReminderUseCase,
+        )
     }
 }

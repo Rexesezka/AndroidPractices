@@ -25,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.myapp.di.ServiceLocator
 import com.example.myapp.ui.common.PlaceholderScreen
 import com.example.myapp.ui.favorites.FavoritesScreen
 import com.example.myapp.ui.filters.GamesFilterScreen
@@ -146,11 +147,13 @@ fun AppNavHost(
             }
             composable(Destinations.PROFILE) {
                 ProfileScreen(
+                    dependencies = ServiceLocator.profileDependencies,
                     onEditClick = { navController.navigate(Destinations.PROFILE_EDIT) },
                 )
             }
             composable(Destinations.PROFILE_EDIT) {
                 ProfileEditScreen(
+                    dependencies = ServiceLocator.profileDependencies,
                     onBack = { navController.popBackStack() },
                     onDone = { navController.popBackStack() },
                 )

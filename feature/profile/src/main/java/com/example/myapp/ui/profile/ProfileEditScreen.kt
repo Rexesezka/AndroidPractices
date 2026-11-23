@@ -53,7 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.myapp.R
+import com.example.myapp.feature.profile.R
 import com.example.myapp.ui.common.AvatarImage
 import java.io.File
 
@@ -67,9 +67,10 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileEditScreen(
+    dependencies: ProfileDependencies,
     onBack: () -> Unit,
     onDone: () -> Unit,
-    viewModel: ProfileEditViewModel = viewModel(factory = ProfileEditViewModel.Factory),
+    viewModel: ProfileEditViewModel = viewModel(factory = ProfileEditViewModel.factory(dependencies)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
