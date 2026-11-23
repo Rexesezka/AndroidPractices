@@ -20,5 +20,8 @@ object Destinations {
 
     const val ARG_GAME_ID = "gameId"
 
+    /** Extra для Intent из уведомления: открыть вкладку «Профиль». */
+    const val EXTRA_OPEN_PROFILE = "com.example.myapp.extra.OPEN_PROFILE"
+
     fun gameDetails(gameId: Int): String = "games/$gameId"
 }
