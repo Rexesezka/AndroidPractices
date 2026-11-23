@@ -8,8 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.myapp.core.NotificationExtras
 import com.example.myapp.ui.navigation.AppNavHost
-import com.example.myapp.ui.navigation.Destinations
 import com.example.myapp.ui.theme.MyAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -39,5 +39,5 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun Intent.wantsProfile(): Boolean =
-        getBooleanExtra(Destinations.EXTRA_OPEN_PROFILE, false)
+        getBooleanExtra(NotificationExtras.EXTRA_OPEN_PROFILE, false)
 }

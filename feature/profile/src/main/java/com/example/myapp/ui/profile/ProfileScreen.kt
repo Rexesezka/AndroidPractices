@@ -49,8 +49,9 @@ import com.example.myapp.ui.common.openDownloadedDocument
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
+    dependencies: ProfileDependencies,
     onEditClick: () -> Unit,
-    viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
+    viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.factory(dependencies)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current

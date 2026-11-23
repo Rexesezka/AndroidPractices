@@ -9,9 +9,8 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.example.myapp.MainActivity
-import com.example.myapp.R
-import com.example.myapp.ui.navigation.Destinations
+import com.example.myapp.core.NotificationExtras
+import com.example.myapp.core.data.R
 
 /**
  * Создание канала уведомлений и показ напоминания о начале любимой пары.
@@ -42,14 +41,19 @@ class NotificationHelper(private val context: Context) {
     fun showLessonReminder(name: String, time: String) {
         ensureChannel()
 
+        // Модуль core:data не знает про app, поэтому получаем launch-intent пакета.
+        val launchIntent = (
+            context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?: Intent(Intent.ACTION_MAIN).setPackage(context.packageName)
+            ).apply {
+            putExtra(NotificationExtras.EXTRA_OPEN_PROFILE, true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
         val contentIntent = PendingIntent.getActivity(
             context,
             REQUEST_CODE_OPEN,
-            Intent(context, MainActivity::class.java).apply {
-                // По нажатию на уведомление открывается приложение на вкладке «Профиль».
-                putExtra(Destinations.EXTRA_OPEN_PROFILE, true)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
+            launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

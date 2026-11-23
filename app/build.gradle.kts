@@ -40,6 +40,12 @@ android {
 }
 
 dependencies {
+    // Модули проекта (зависимости направлены только из app в модули).
+    implementation(project(":core:domain"))
+    implementation(project(":core:data"))
+    implementation(project(":core:ui"))
+    implementation(project(":feature:profile"))
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
